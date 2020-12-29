@@ -1849,12 +1849,31 @@ static int ufs_qcom_pm_qos_init(struct ufs_qcom_host *host)
 	char wq_name[sizeof("ufs_pm_qos_00")];
 	int i;
 
+#ifndef CONFIG_SMP
+	int num_groups;
+	num_groups = of_property_count_u32_elems(node,
+		"qcom,pm-qos-cpu-groups");
+	if (num_groups <= 0)
+		goto no_pm_qos;
+
+#endif
+
 	num_values = of_property_count_u32_elems(node,
 		"qcom,pm-qos-cpu-group-latency-us");
 	if (num_values <= 0)
 		goto no_pm_qos;
 
+#ifndef CONFIG_SMP
+	if (num_values != num_groups || num_groups > num_possible_cpus()) {
+		dev_err(host->hba->dev, "%s: invalid count: num_groups=%d, num_values=%d, num_possible_cpus=%d\n",
+			__func__, num_groups, num_values, num_possible_cpus());
+		goto no_pm_qos;
+	}
+
+	host->pm_qos.num_groups = num_groups;
+#else
 	host->pm_qos.num_groups = 1;
+#endif
 	host->pm_qos.groups = kcalloc(host->pm_qos.num_groups,
 			sizeof(struct ufs_qcom_pm_qos_cpu_group), GFP_KERNEL);
 	if (!host->pm_qos.groups)
