@@ -84,9 +84,9 @@ static unsigned int get_input_boost_freq(struct cpufreq_policy *policy)
 	unsigned int freq;
 
 	if (cpumask_test_cpu(policy->cpu, cpu_lp_mask))
-		freq = input_boost_freq_lp;
+		freq = max(input_boost_freq_lp, remove_input_boost_freq_lp);
 	else
-		freq = input_boost_freq_hp;
+		freq = max(input_boost_freq_hp, remove_input_boost_freq_perf);
 
 	return min(freq, policy->max);
 }
@@ -135,6 +135,9 @@ static void update_online_cpu_policy(void)
 static void __cpu_input_boost_kick(struct boost_drv *b)
 {
 	if (test_bit(SCREEN_OFF, &b->state) || is_battery_saver_on())
+		return;
+
+	if ((get_boost_state(b) & SCREEN_OFF) || CONFIG_INPUT_BOOST_DURATION_MS == 0)
 		return;
 
 	if (!input_boost_duration)
