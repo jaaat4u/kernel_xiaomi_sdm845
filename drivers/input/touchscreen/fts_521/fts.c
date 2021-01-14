@@ -3769,6 +3769,7 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 		kfree(info->event_dispatch_table);
 		error = -EBUSY;
 	} else {
+		irq_set_affinity(info->client->irq, cpu_perf_mask);
 		disable_irq(info->client->irq);
 	}
 
