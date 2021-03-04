@@ -1208,6 +1208,11 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 	uint32_t input_x = 0;
 	uint32_t input_y = 0;
 	uint8_t input_id = 0;
+
+	struct sched_param param = {
+		.sched_priority = MAX_USER_RT_PRIO/2,
+	};
+
 #if MT_PROTOCOL_B
 	uint8_t press_id[TOUCH_MAX_FINGER_NUM] = {0};
 #endif /* MT_PROTOCOL_B */
@@ -1221,8 +1226,6 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 		pm_wakeup_event(&ts->input_dev->dev, 5000);
 	}
 #endif
-
-	struct sched_param param = { .sched_priority = MAX_USER_RT_PRIO / 2 };
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 
