@@ -838,6 +838,10 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 	u8 *buf = data->point_buf;
 	struct i2c_client *client = data->client;
 
+	struct sched_param param = {
+		.sched_priority = MAX_USER_RT_PRIO/2,
+	};
+
 #if FTS_GESTURE_EN
 	if (0 == fts_gesture_readdata(data)) {
 		FTS_INFO("succuss to get gesture data in irq handler");
@@ -848,8 +852,6 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 #if FTS_POINT_REPORT_CHECK_EN
 	fts_prc_queue_work(data);
 #endif
-
-	struct sched_param param = { .sched_priority = MAX_USER_RT_PRIO / 2 };
 
 	sched_setscheduler(current, SCHED_FIFO, &param);
 
