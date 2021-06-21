@@ -1210,7 +1210,7 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 	uint8_t input_id = 0;
 
 	struct sched_param param = {
-		.sched_priority = MAX_USER_RT_PRIO/2,
+		.sched_priority = MAX_USER_RT_PRIO/5,
 	};
 
 #if MT_PROTOCOL_B
@@ -1227,7 +1227,7 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 	}
 #endif
 
-	sched_setscheduler(current, SCHED_FIFO, &param);
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	mutex_lock(&ts->lock);
 
