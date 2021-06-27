@@ -813,7 +813,7 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 	struct i2c_client *client = data->client;
 
 	struct sched_param param = {
-		.sched_priority = MAX_USER_RT_PRIO/2,
+		.sched_priority = MAX_USER_RT_PRIO/6,
 	};
 
 #if FTS_GESTURE_EN
@@ -827,7 +827,7 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 	fts_prc_queue_work(data);
 #endif
 
-	sched_setscheduler(current, SCHED_FIFO, &param);
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	data->point_num = 0;
 	data->touch_point = 0;

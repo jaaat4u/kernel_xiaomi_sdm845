@@ -1210,7 +1210,7 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 	uint8_t input_id = 0;
 
 	struct sched_param param = {
-		.sched_priority = MAX_USER_RT_PRIO/5,
+		.sched_priority = MAX_USER_RT_PRIO/6,
 	};
 
 #if MT_PROTOCOL_B
