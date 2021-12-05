@@ -4,7 +4,7 @@
  * FTS Capacitive touch screen controller (FingerTipS)
  *
  * Copyright (C) 2016, STMicroelectronics Limited.
- * Copyright (C) 2019 XiaoMi, Inc.
+ * Copyright (C) 2018 XiaoMi, Inc.
  * Authors: AMG(Analog Mems Group)
  *
  *		marco.cali@st.com
@@ -38,6 +38,7 @@
 #ifdef CONFIG_DRM
 #include <drm/drm_notifier.h>
 #endif
+#include <linux/cpu.h>
 
 #ifdef KERNEL_ABOVE_2_6_38
 #include <linux/input/mt.h>
@@ -131,7 +132,7 @@ static const char *fts_get_limit(struct fts_ts_info *info);
 static void fts_clear_point(struct fts_ts_info *info);
 #endif
 #ifdef CONFIG_INPUT_PRESS_NDT
-bool aod_mode;
+bool aod_mode = false;
 #endif
 
 unsigned int le_to_uint(const unsigned char *ptr)
@@ -1443,7 +1444,7 @@ static bool fts_is_in_fodarea(int x, int y)
 		return false;
 }
 #endif
-bool finger_report_flag;
+bool finger_report_flag = false;
 static unsigned char *fts_enter_pointer_event_handler(struct fts_ts_info *info, unsigned char *event)
 {
 	unsigned char touchId, touchcount;
@@ -1920,7 +1921,6 @@ static unsigned char *fts_gesture_event_handler(struct fts_ts_info *info, unsign
 {
 	unsigned char touchId;
 	int value;
-	char ch[64] = {0x0,};
 
 	if (!info->gesture_enabled)
 		return fts_next_event(event);
@@ -2470,7 +2470,7 @@ static int fts_interrupt_install(struct fts_ts_info *info)
 #else
 	log_debug("%s Interrupt Mode\n", tag);
 
-	if (request_irq(info->client->irq, fts_interrupt_handler, info->bdata->irq_flags, info->client->name, info)) {
+	if (request_irq(info->client->irq, fts_interrupt_handler, IRQ_FLAGS, info->client->name, info)) {
 		log_error("%s Request irq failed\n", tag);
 		kfree(info->event_dispatch_table);
 		error = -EBUSY;
@@ -2725,6 +2725,7 @@ static int fts_drm_state_chg_callback(struct notifier_block *nb, unsigned long v
 				break;
 
 			log_error("%s %s: DRM_BLANK_POWERDOWN\n", tag, __func__);
+			irq_set_affinity(info->client->irq, cpumask_of(0));
 			queue_work(info->event_wq, &info->suspend_work);
 			break;
 
@@ -2733,6 +2734,7 @@ static int fts_drm_state_chg_callback(struct notifier_block *nb, unsigned long v
 				break;
 
 			log_error("%s %s: DRM_BLANK_UNBLANK\n", tag, __func__);
+			irq_set_affinity(info->client->irq, cpu_perf_mask);
 			queue_work(info->event_wq, &info->resume_work);
 			break;
 
@@ -2985,12 +2987,6 @@ static int parse_dt(struct device *dev, struct fts_i2c_platform_data *bdata)
 	} else {
 		bdata->reset_gpio = GPIO_NOT_DEFINED;
 	}
-
-	retval = of_property_read_u32(np, "fts,irq-flags", &temp_val);
-	if (retval < 0)
-		return retval;
-	else
-		bdata->irq_flags = temp_val;
 
 	retval = of_property_read_u32(np, "fts,config-array-size", (u32 *)&bdata->config_array_size);
 
@@ -3723,66 +3719,10 @@ static int fts_probe(struct i2c_client *client, const struct i2c_device_id *idp)
 		update_hardware_info(TYPE_TP_MAKER, info->lockdown_info[0] - 0x30);
 	}
 
-	dev_set_drvdata(&client->dev, info);
-	device_init_wakeup(&client->dev, 1);
-#ifdef CONFIG_TOUCHSCREEN_ST_DEBUG_FS
-	info->debugfs = debugfs_create_dir("tp_debug", NULL);
-	if (info->debugfs) {
-		debugfs_create_file("switch_state", 0660, info->debugfs, info, &tpdbg_operations);
-	}
-#endif
-	fts_info = info;
-#ifdef SCRIPTLESS
-
-	if (fts_cmd_class == NULL)
-		fts_cmd_class = class_create(THIS_MODULE, FTS_TS_DRV_NAME);
-
-	info->i2c_cmd_dev = device_create(fts_cmd_class, NULL, DCHIP_ID_0, info, "fts_i2c");
-
-	if (IS_ERR(info->i2c_cmd_dev)) {
-		log_error("%s ERROR: Failed to create device for the sysfs!\n", tag);
-		goto ProbeErrorExit_8;
-	}
-
-	dev_set_drvdata(info->i2c_cmd_dev, info);
-	error = sysfs_create_group(&info->i2c_cmd_dev->kobj, &i2c_cmd_attr_group);
-
-	if (error) {
-		log_error("%s ERROR: Failed to create sysfs group!\n", tag);
-		goto ProbeErrorExit_9;
-	}
-
-#endif
 #ifdef DRIVER_TEST
-
-	if (fts_cmd_class == NULL)
-		fts_cmd_class = class_create(THIS_MODULE, FTS_TS_DRV_NAME);
-
-	info->test_cmd_dev = device_create(fts_cmd_class, NULL, DCHIP_ID_1, info, "fts_driver_test");
-
-	if (IS_ERR(info->test_cmd_dev)) {
-		log_error("%s ERROR: Failed to create device for the sysfs!\n", tag);
-		goto ProbeErrorExit_10;
-	}
-
-	dev_set_drvdata(info->test_cmd_dev, info);
-	error = sysfs_create_group(&info->test_cmd_dev->kobj,  &test_cmd_attr_group);
-
-	if (error) {
-		log_error("%s ERROR: Failed to create sysfs group!\n", tag);
-		goto ProbeErrorExit_11;
-	}
-
+ProbeErrorExit_12:
+	sysfs_remove_group(&info->test_cmd_dev->kobj,  &test_cmd_attr_group);
 #endif
-
-	info->tp_selftest_proc = proc_create("tp_selftest", 0, NULL, &fts_selftest_ops);
-	info->tp_data_dump_proc = proc_create("tp_data_dump", 0, NULL, &fts_datadump_ops);
-	info->tp_fw_version_proc = proc_create("tp_fw_version", 0, NULL, &fts_fw_version_ops);
-	info->tp_lockdown_info_proc = proc_create("tp_lockdown_info", 0, NULL, &fts_lockdown_info_ops);
-	queue_delayed_work(info->fwu_workqueue, &info->fwu_work, msecs_to_jiffies(EXP_FN_WORK_DELAY_MS));
-
-	return OK;
-
 #ifdef DRIVER_TEST
 ProbeErrorExit_11:
 	device_destroy(fts_cmd_class, DCHIP_ID_1);
