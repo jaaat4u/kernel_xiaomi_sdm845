@@ -813,7 +813,7 @@ static int fts_read_touchdata(struct fts_ts_data *data)
 	struct i2c_client *client = data->client;
 
 	struct sched_param param = {
-		.sched_priority = MAX_USER_RT_PRIO/6,
+		.sched_priority = MAX_USER_RT_PRIO/2,
 	};
 
 #if FTS_GESTURE_EN
