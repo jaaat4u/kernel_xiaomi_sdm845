@@ -125,3 +125,5 @@ kernel/configs/android-*.cfg
 Android.bp
 c.sh
 clang/
+out/
+regen.sh
